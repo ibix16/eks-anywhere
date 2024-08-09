@@ -5,7 +5,7 @@ package cmd
 
 	this command is responsible for accessing and updating the Makefile with the latest release value
 
-	the updated makefile is committed to the "eks-a-releaser" branch, forked repo
+	the updated makefile is committed to the latest release branch, forked repo
 	and a pull request is raised targetting the upstream repo latest release branch
 */
 
@@ -50,7 +50,7 @@ func updateMakefile() error {
 	latestRelease := os.Getenv("LATEST_RELEASE")
 
 	opts := &github.RepositoryContentGetOptions{
-		Ref: "eks-a-releaser", // branch that will be accessed
+		Ref: "main", // branch that will be accessed
 	}
 
 	// access makefile in forked repo and retrieve entire file contents
@@ -67,8 +67,8 @@ func updateMakefile() error {
 	// stores entire updated Makefile as a string
 	updatedContent := returnUpdatedMakeFile(content, latestRelease)
 
-	// get latest commit sha from branch "eks-a-releaser"
-	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/eks-a-releaser")
+	// get latest commit sha from latest release branch 
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}
@@ -114,7 +114,7 @@ func updateMakefile() error {
 
 	// create pull request 
 	base := latestRelease // branch PR will be merged into
-	head := fmt.Sprintf("%s:%s", forkedRepoAccount, "eks-a-releaser")
+	head := fmt.Sprintf("%s:%s", forkedRepoAccount, latestRelease)
 	title := "Updates Makefile to point to new release"
 	body := "This pull request is responsible for updating the contents of the Makefile"
 

@@ -8,7 +8,7 @@ package cmd
 
 	currently :
 
-	updateTemplaterFile() - accessess the templater file from the provided path on "eks-a-releaser" branch, forked repo
+	updateTemplaterFile() - accessess the templater file from the provided path on "main" branch, forked repo
 	retrieves content from templater file
 
 	updates file content to point to new release, stores updated file content in a variable
@@ -17,7 +17,7 @@ package cmd
 	deletes previously exisiting file using previous file path/name ~ templaterFilePath
 	creates a new file using the updated file path/name and the updated file content
 
-	commits changes to prow-jobs repo "eks-a-releaser" branch, forked repo
+	commits changes to prow-jobs repo latest release branch, forked repo
 
 	raises PR with commits targeting upstream repo "main" branch
 */
@@ -74,10 +74,10 @@ func updateTemplaterFile() {
 	client := github.NewClient(nil).WithAuthToken(accessToken)
 
 	opts := &github.RepositoryContentGetOptions{
-		Ref: "eks-a-releaser", // branch to access
+		Ref: "main", // branch to access
 	}
 
-	// access templater file on eks-a-releaser branch and retrieve entire file contents
+	// access templater file on main branch and retrieve entire file contents
 	templaterFileContent, _, _, err := client.Repositories.GetContents(ctx, forkedRepoAccount, prowRepoName, templaterFilePath, opts)
 	if err != nil {
 		fmt.Print("first breakpoint", err)
@@ -182,6 +182,10 @@ func updateTemplaterFile() {
 	if err != nil {
 		fmt.Printf("error:  %s", err)
 	}
+
+
+	// insert logic here to execute make command 
+
 
 	err = createPullRequest(ctx, client, "main", "Update Templater File", "This PR updates the templater file for the new release.")
 	if err != nil {
@@ -315,3 +319,7 @@ func FetchFileName(owner, repo, dir, branch string)(string, error){
 
 // successfully deletes old file and creates new file on forked repo, eks-a-releaser branch 
 // successfully creates a PR targetting upstream prow jobs repo with the new commits, merges into "main" branch
+
+// partially incomplete, the templater file correctly gets updated with the new release contents 
+// A PR is created right away after the templater file is updated 
+// this is incorrect as a command needs to be executed after the templater file has been updated but prior to the PR creation

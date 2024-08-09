@@ -9,7 +9,7 @@ package cmd
 
 	retrieves the current file from forked repo and updates it with the new value, committing the changes
 
-	PR is then raised from "eks-a-releaser" branch, forked repo, targgetting new release branch on upstream repo
+	PR is then raised from latest release branch, forked repo, targgetting new release branch on upstream repo
 */
 
 import (
@@ -58,6 +58,8 @@ func updateHomebrew()error{
 	// fetch latest "v0.xx.xx" from env
 	latestVersionValue := os.Getenv("LATEST_VERSION")
 
+	latestRelease := os.Getenv("LATEST_RELEASE")
+
 	// create client 
 	accessToken := os.Getenv("SECRET_PAT")
 	ctx := context.Background()
@@ -65,7 +67,7 @@ func updateHomebrew()error{
 
 
 	opts := &github.RepositoryContentGetOptions{
-		Ref: "eks-a-releaser", // specific branch to check for homebrew file
+		Ref: "main", // specific branch to check for homebrew file
 	}
 
 	// access homebrew file
@@ -85,7 +87,7 @@ func updateHomebrew()error{
 
 
 	// get latest commit sha from branch "eks-a-releaser"
-	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/eks-a-releaser")
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}
@@ -149,7 +151,7 @@ func createPullRequestHomebrew()error{
 
 	
 	base := latestRelease // branch PR will be merged into
-	head := fmt.Sprintf("%s:%s", forkedRepoAccount, "eks-a-releaser")
+	head := fmt.Sprintf("%s:%s", forkedRepoAccount, latestRelease)
 	title := "Update homebrew cli version value to point to new release"
 	body := "This pull request is responsible for updating the contents of the home brew cli version file"
 

@@ -65,9 +65,10 @@ func updateProdReleaseNumber() error {
 	ctx := context.Background()
 	client := github.NewClient(nil).WithAuthToken(accessToken)
 	releaseNumber := os.Getenv("RELEASE_NUMBER")
+	latestRelease := os.Getenv("LATEST_RELEASE")
 
 	// get latest commit sha from branch "eks-a-releaser"
-	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/eks-a-releaser")
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}
@@ -112,9 +113,8 @@ func updateProdReleaseNumber() error {
 	}
 
 	// create pull request
-	latestRelease := os.Getenv("LATEST_RELEASE")
 	base := latestRelease
-	head := fmt.Sprintf("%s:%s", forkedRepoAccount, "eks-a-releaser")
+	head := fmt.Sprintf("%s:%s", forkedRepoAccount, latestRelease)
 	title := "Update version files to stage prod cli release"
 	body := "This pull request is responsible for updating the contents of 2 seperate files in order to trigger the prod cli release pipeline"
 
@@ -145,9 +145,10 @@ func updateProdReleaseVersion() error {
 
 
 	latestVersion := os.Getenv("LATEST_VERSION")
+	latestRelease := os.Getenv("LATEST_RELEASE")
 
 	// get latest commit sha from branch "eks-a-releaser"
-	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/eks-a-releaser")
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}

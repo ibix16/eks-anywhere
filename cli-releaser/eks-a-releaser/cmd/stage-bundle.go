@@ -10,7 +10,7 @@ package cmd
 
 	Fetches env variables passed in from pipeline UI
 
-	The pull request is created using the 3 commits from "eks-a-releaser" branch forked repo and is intended to be merged into latest release branch on the upstream repo
+	The pull request is created using the 3 commits from latest release branch forked repo and is intended to be merged into latest release branch on the upstream repo
 */
 
 import (
@@ -84,8 +84,10 @@ func updateBundleNum() error {
 	bundleNumber := os.Getenv("RELEASE_NUMBER")
 
 
-	// get latest commit sha from branch "eks-a-releaser"
-	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/eks-a-releaser")
+	latestRelease := os.Getenv("LATEST_RELEASE")
+
+	// get latest commit sha from latest release branch 
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}
@@ -140,10 +142,10 @@ func updateCLIMax() error {
 	client := github.NewClient(nil).WithAuthToken(accessToken)
 
 	latestVersion := os.Getenv("LATEST_VERSION")
+	latestRelease := os.Getenv("LATEST_RELEASE")
 
-
-	// get latest commit sha from branch "eks-a-releaser"
-	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/eks-a-releaser")
+	// get latest commit sha from latest release branch 
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}
@@ -197,10 +199,10 @@ func updateCLIMin() error {
 	client := github.NewClient(nil).WithAuthToken(accessToken)
 
 	latestVersion := os.Getenv("LATEST_VERSION")
+	latestRelease := os.Getenv("LATEST_RELEASE")
 
-
-	// get latest commit sha from branch "eks-a-releaser"
-	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/eks-a-releaser")
+	// get latest commit sha from latest release branch 
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}
@@ -257,7 +259,7 @@ func createPullRequestStageBundleTwo() error{
 
 
 	base := latestRelease // target branch for upstream repo
-	head := fmt.Sprintf("%s:%s", forkedRepoAccount, "eks-a-releaser")
+	head := fmt.Sprintf("%s:%s", forkedRepoAccount, latestRelease)
 	title := "Update version files to stage bundle release"
 	body := "This pull request is responsible for updating the contents of 3 separate files in order to trigger the staging bundle release pipeline"
 

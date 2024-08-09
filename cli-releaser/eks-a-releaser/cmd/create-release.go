@@ -42,8 +42,10 @@ and usage of using your command.`,
 
 func runBothTag(){
 
+	RELEASE_TYPE := os.Getenv("RELEASE_TYPE")	
+
 	//retrieve commit hash 
-	commitHash := retrieveLatestProdCLIHash()
+	commitHash := retrieveLatestProdCLIHash(RELEASE_TYPE)
 	
 	//create tag with commit hash
 	tag, errOne := createTag(commitHash)
@@ -56,10 +58,6 @@ func runBothTag(){
 		log.Panic(errTwo)
 	}
 
-	err := createReleasePR(rel)
-	if err != nil {
-		log.Panic(err)
-	}
 
 	//print release object
 	fmt.Print(rel)
@@ -69,7 +67,7 @@ func runBothTag(){
 // creates tag using retrieved commit hash
 func createTag(commitHash string) (*github.RepositoryRelease, error){
 	
-	// retrieve tag name "v0.0.00" from trigger file, "eks-a-releaser" branch 
+	// retrieve tag name "v0.0.00" 
 	latestVersionValue := os.Getenv("LATEST_VERSION")
 
 	//create client
@@ -85,7 +83,7 @@ func createTag(commitHash string) (*github.RepositoryRelease, error){
 	client := github.NewClient(tc)
 
 	releaseName := latestVersionValue
-	releaseDesc := "EKS-Anywhere " + latestVersionValue + " release"
+	releaseDesc := latestVersionValue //"EKS-Anywhere " + latestVersionValue + " release"
 	commitSHA := commitHash
 	release := &github.RepositoryRelease{
     	TagName: github.String(releaseName),
@@ -94,7 +92,7 @@ func createTag(commitHash string) (*github.RepositoryRelease, error){
 		TargetCommitish: github.String(commitSHA),
 	}
 
-	rel, _, err := client.Repositories.CreateRelease(ctx, forkedRepoAccount, EKSAnyrepoName, release)
+	rel, _, err := client.Repositories.CreateRelease(ctx, upStreamRepoOwner, EKSAnyrepoName, release)
 	if err != nil {
 		fmt.Printf("error creating release: %v", err)
 	}
@@ -105,8 +103,11 @@ func createTag(commitHash string) (*github.RepositoryRelease, error){
 
 
 
-func retrieveLatestProdCLIHash() string {
-	
+func retrieveLatestProdCLIHash(releaseType string) string {
+	latestRelease := os.Getenv("LATEST_RELEASE")
+
+	if releaseType == "minor"{
+
 	//create client
 	accessToken := os.Getenv("SECRET_PAT")
 	ctx := context.Background()
@@ -114,11 +115,11 @@ func retrieveLatestProdCLIHash() string {
 
 	opts := &github.CommitsListOptions{
         Path: prodCliReleaseVerPath, // file to check
-        SHA:  "eks-a-releaser", // branch to check
+        SHA:  latestRelease, // branch to check - release-0.xx
     }
 
 	
-	commits, _, err := client.Repositories.ListCommits(ctx, forkedRepoAccount, EKSAnyrepoName, opts)
+	commits, _, err := client.Repositories.ListCommits(ctx, usersForkedRepoAccount, EKSAnyrepoName, opts)
     if err != nil {
         return "error fetching commits list"
     }
@@ -130,6 +131,35 @@ func retrieveLatestProdCLIHash() string {
     }
 
     return "no commits found for file"
+
+	}
+
+
+	// else 
+	//create client
+	accessToken := os.Getenv("SECRET_PAT")
+	ctx := context.Background()
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+
+	opts := &github.CommitsListOptions{
+        Path: prodCliReleaseVerPath, // file to check
+        SHA:  latestRelease+"-releaser-patch", // branch to check - release-0.xx-releaser-patch
+    }
+
+	
+	commits, _, err := client.Repositories.ListCommits(ctx, usersForkedRepoAccount, EKSAnyrepoName, opts)
+    if err != nil {
+        return "error fetching commits list"
+    }
+
+
+	if len(commits) > 0 {
+        latestCommit := commits[0]
+        return latestCommit.GetSHA()
+    }
+
+    return "no commits found for file"
+	
 }
 
 
@@ -142,7 +172,7 @@ func createGitHubRelease(releaseTag *github.RepositoryRelease) (*github.Reposito
 	ctx := context.Background()
 	client := github.NewClient(nil).WithAuthToken(accessToken)
 
-	release, _, err := client.Repositories.GetReleaseByTag(ctx, forkedRepoAccount, EKSAnyrepoName, latestVersionValue)
+	release, _, err := client.Repositories.GetReleaseByTag(ctx, upStreamRepoOwner, EKSAnyrepoName, latestVersionValue)
     if err == nil {
         fmt.Printf("Release %s already exists!\n", latestVersionValue)
         return release, nil
@@ -154,7 +184,7 @@ func createGitHubRelease(releaseTag *github.RepositoryRelease) (*github.Reposito
         Body:    releaseTag.Body,
     }
 
-    rel, _, err := client.Repositories.CreateRelease(ctx, forkedRepoAccount, EKSAnyrepoName, release)
+    rel, _, err := client.Repositories.CreateRelease(ctx, upStreamRepoOwner, EKSAnyrepoName, release)
     if err != nil {
         return nil, err
     }
@@ -162,38 +192,3 @@ func createGitHubRelease(releaseTag *github.RepositoryRelease) (*github.Reposito
     return rel, nil
 }
 
-
-
-func createReleasePR(release *github.RepositoryRelease) error {
-
-	//create client
-	latestRelease := os.Getenv("LATEST_RELEASE")
-	accessToken := os.Getenv("SECRET_PAT")
-	ctx := context.Background()
-	client := github.NewClient(nil).WithAuthToken(accessToken)
-
-
-	
-	
-	// Prepare pull request details
-	title := fmt.Sprintf("Release %s", release.GetTagName())
-	body := fmt.Sprintf("This pull request contains the release %s", release.GetTagName())
-	head := fmt.Sprintf("%s:%s", forkedRepoAccount, "eks-a-releaser")
-	base := latestRelease
-
-	fmt.Printf("Head parameter value: %s\n", head)
-	// Create a pull request
-	pr, _, err := client.PullRequests.Create(ctx, upStreamRepoOwner, EKSAnyrepoName, &github.NewPullRequest{
-		Title: &title,
-		Body:  &body,
-		Head:  &head,
-		Base:  &base,
-	})
-	if err != nil {
-		return fmt.Errorf("error creating pull request: %v", err)
-	}
-
-	fmt.Printf("Pull request created: %s\n", pr.GetHTMLURL())
-	return nil
-	
-}

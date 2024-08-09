@@ -90,7 +90,7 @@ func createAnywhereBranch() error {
 	}
 
 	// Create a new branch
-	newBranchRef, _, err = client.Git.CreateRef(ctx, forkedRepoAccount, EKSAnyrepoName, &github.Reference{
+	newBranchRef, _, err = client.Git.CreateRef(ctx, usersForkedRepoAccount, EKSAnyrepoName, &github.Reference{
 		Ref: &ref,
 		Object: &github.GitObject{
 			SHA: baseRefObj.Object.SHA,

@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	prowRepoName      = "eks-anywhere-prow-jobs"
+	prowRepo      = "eks-anywhere-prow-jobs"
 )
 
 // upProwCmd represents the upProw command
@@ -60,7 +60,7 @@ func updateTemplaterFile() {
 	latestRelease := os.Getenv("LATEST_RELEASE")
 
 	// var holds latest file name
-	latestFileName, err := FetchFileName(forkedRepoAccount, prowRepoName, "templater/jobs/periodic/eks-anywhere-build-tooling", "eks-a-releaser")
+	latestFileName, err := FetchFileName(usersForkedRepoAccount, prowRepo, "templater/jobs/periodic/eks-anywhere-build-tooling", "eks-a-releaser")
 	if err != nil {
 		fmt.Print("error fetching file names", err)
 	}
@@ -78,7 +78,7 @@ func updateTemplaterFile() {
 	}
 
 	// access templater file on main branch and retrieve entire file contents
-	templaterFileContent, _, _, err := client.Repositories.GetContents(ctx, forkedRepoAccount, prowRepoName, templaterFilePath, opts)
+	templaterFileContent, _, _, err := client.Repositories.GetContents(ctx, usersForkedRepoAccount, prowRepo, templaterFilePath, opts)
 	if err != nil {
 		fmt.Print("first breakpoint", err)
 	}
@@ -173,12 +173,12 @@ func updateTemplaterFile() {
 	// the updated file path including the file name for the new file that needs to be created ~ in a string variable : newString
 
 
-	err = deleteFile(ctx, client, forkedRepoAccount, prowRepoName, prevFileName, "eks-a-releaser")
+	err = deleteFile(ctx, client, usersForkedRepoAccount, prowRepo, prevFileName, "eks-a-releaser")
 	if err != nil {
 		fmt.Printf("error:  %s", err)
 	}
 
-	err = createFile(forkedRepoAccount, prowRepoName, newFilePathString, secondUpdatedFileContent)
+	err = createFile(usersForkedRepoAccount, prowRepo, newFilePathString, secondUpdatedFileContent)
 	if err != nil {
 		fmt.Printf("error:  %s", err)
 	}
@@ -260,7 +260,7 @@ func deleteFile(ctx context.Context, client *github.Client, repoOwner, repoName,
 
 func createPullRequest(ctx context.Context, client *github.Client, baseBranch, title, body string) error {
 
-	head := fmt.Sprintf("%s:%s", forkedRepoAccount, "eks-a-releaser")
+	head := fmt.Sprintf("%s:%s", usersForkedRepoAccount, "eks-a-releaser")
 
 	newPR := &github.NewPullRequest{
 		Title: github.String(title),
@@ -270,7 +270,7 @@ func createPullRequest(ctx context.Context, client *github.Client, baseBranch, t
 	}
 
 
-	pr, _, err := client.PullRequests.Create(ctx, upStreamRepoOwner, prowRepoName, newPR)
+	pr, _, err := client.PullRequests.Create(ctx, upStreamRepoOwner, prowRepo, newPR)
 	if err != nil {
 		return err
 	}

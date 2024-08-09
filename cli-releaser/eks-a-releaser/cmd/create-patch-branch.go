@@ -6,8 +6,7 @@ package cmd
 /*
 	what does this command do?
 
-	creates a new patch release branch in forked repo based off release branch in upstream repo
-
+	creates a new patch release branch in forked repo based off latest release branch in upstream repo
 */
 
 import (
@@ -62,7 +61,7 @@ func createPatchBranch()error{
 	}
 
 	// Create a new branch in fork
-	newBranchRef, _, err := client.Git.CreateRef(ctx, forkedRepoAccount, EKSAnyrepoName, &github.Reference{
+	newBranchRef, _, err := client.Git.CreateRef(ctx, usersForkedRepoAccount, EKSAnyrepoName, &github.Reference{
 		Ref: &ref,
 		Object: &github.GitObject{
 			SHA: baseRefObj.Object.SHA,

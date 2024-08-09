@@ -6,6 +6,7 @@ package cmd
 	this command is responsible for accessing and updating the Makefile with the latest release value
 
 	the updated makefile is committed to the latest release branch, forked repo
+	
 	and a pull request is raised targetting the upstream repo latest release branch
 */
 
@@ -54,7 +55,7 @@ func updateMakefile() error {
 	}
 
 	// access makefile in forked repo and retrieve entire file contents
-	triggerFileContentBundleNumber, _, _, err := client.Repositories.GetContents(ctx, forkedRepoAccount, EKSAnyrepoName, makeFilePath, opts)
+	triggerFileContentBundleNumber, _, _, err := client.Repositories.GetContents(ctx, usersForkedRepoAccount, EKSAnyrepoName, makeFilePath, opts)
 	if err != nil {
 		fmt.Print("first breakpoint", err)
 	}
@@ -68,7 +69,7 @@ func updateMakefile() error {
 	updatedContent := returnUpdatedMakeFile(content, latestRelease)
 
 	// get latest commit sha from latest release branch 
-	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
+	ref, _, err := client.Git.GetRef(ctx, usersForkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}
@@ -76,7 +77,7 @@ func updateMakefile() error {
 
 	entries := []*github.TreeEntry{}
 	entries = append(entries, &github.TreeEntry{Path: github.String(strings.TrimPrefix(makeFilePath, "/")), Type: github.String("blob"), Content: github.String(string(updatedContent)), Mode: github.String("100644")})
-	tree, _, err := client.Git.CreateTree(ctx, forkedRepoAccount, EKSAnyrepoName, *ref.Object.SHA, entries)
+	tree, _, err := client.Git.CreateTree(ctx, usersForkedRepoAccount, EKSAnyrepoName, *ref.Object.SHA, entries)
 	if err != nil {
 		return fmt.Errorf("error creating tree %s", err)
 	}
@@ -98,7 +99,7 @@ func updateMakefile() error {
 	}
 
 	commitOP := &github.CreateCommitOptions{}
-	newCommit, _, err := client.Git.CreateCommit(ctx, forkedRepoAccount, EKSAnyrepoName, commit, commitOP)
+	newCommit, _, err := client.Git.CreateCommit(ctx, usersForkedRepoAccount, EKSAnyrepoName, commit, commitOP)
 	if err != nil {
 		return fmt.Errorf("creating commit %s", err)
 	}
@@ -107,14 +108,14 @@ func updateMakefile() error {
 	// update branch reference
 	ref.Object.SHA = github.String(newCommitSHA)
 
-	_, _, err = client.Git.UpdateRef(ctx, forkedRepoAccount, EKSAnyrepoName, ref, false)
+	_, _, err = client.Git.UpdateRef(ctx, usersForkedRepoAccount, EKSAnyrepoName, ref, false)
 	if err != nil {
 		return fmt.Errorf("error updating ref %s", err)
 	}
 
 	// create pull request 
 	base := latestRelease // branch PR will be merged into
-	head := fmt.Sprintf("%s:%s", forkedRepoAccount, latestRelease)
+	head := fmt.Sprintf("%s:%s", usersForkedRepoAccount, latestRelease)
 	title := "Updates Makefile to point to new release"
 	body := "This pull request is responsible for updating the contents of the Makefile"
 

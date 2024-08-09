@@ -47,17 +47,19 @@ var prodBundleCmd = &cobra.Command{
 
 func updateAllProdBundleFiles() error {
 
-	errOne := updateProdBundleNumber()
+	RELEASE_TYPE := os.Getenv("RELEASE_TYPE")	
+
+	errOne := updateProdBundleNumber(RELEASE_TYPE)
 	if errOne != nil {
 		return errOne
 	}
 
-	errTwo := updateProdMaxVersion()
+	errTwo := updateProdMaxVersion(RELEASE_TYPE)
 	if errTwo != nil {
 		return errTwo
 	}
 
-	errThree := updateProdMinVersion()
+	errThree := updateProdMinVersion(RELEASE_TYPE)
 	if errThree != nil {
 		return errThree
 	}
@@ -65,9 +67,12 @@ func updateAllProdBundleFiles() error {
 	return nil
 }
 
-func updateProdBundleNumber() error {
+func updateProdBundleNumber(releaseType string) error {
 
-	// create client 
+
+	if releaseType == "minor"{
+
+		// create client 
 	accessToken := os.Getenv("SECRET_PAT")
 	ctx := context.Background()
 	client := github.NewClient(nil).WithAuthToken(accessToken)
@@ -145,9 +150,93 @@ func updateProdBundleNumber() error {
 	log.Printf("Pull request created: %s\n", pr.GetHTMLURL())
 	return nil
 
+	}
+
+	// else 
+	// create client 
+	accessToken := os.Getenv("SECRET_PAT")
+	ctx := context.Background()
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+
+	// fetch latest release number from env 
+	bundleNumber := os.Getenv("RELEASE_NUMBER")
+	latestRelease := os.Getenv("LATEST_RELEASE")
+
+
+	// get latest commit sha from "eks-a-releaser" branch
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease+"-releaser-patch")
+	if err != nil {
+		return fmt.Errorf("error getting ref %s", err)
+	}
+	latestCommitSha := ref.Object.GetSHA()
+
+	entries := []*github.TreeEntry{}
+	entries = append(entries, &github.TreeEntry{Path: github.String(strings.TrimPrefix(prodBundleNumPath, "/")), Type: github.String("blob"), Content: github.String(string(bundleNumber)), Mode: github.String("100644")})
+	tree, _, err := client.Git.CreateTree(ctx, forkedRepoAccount, EKSAnyrepoName, *ref.Object.SHA, entries)
+	if err != nil {
+		return fmt.Errorf("error creating tree %s", err)
+	}
+
+
+	//validate tree sha
+	newTreeSHA := tree.GetSHA()
+
+	// create new commit, update email address associated with commit
+	author := &github.CommitAuthor{
+		Name:  github.String("ibix16"),
+		Email: github.String("fake@wtv.com"),
+	}
+
+	commit := &github.Commit{
+		Message: github.String("Update production bundle number file"),
+		Tree:    &github.Tree{SHA: github.String(newTreeSHA)},
+		Author:  author,
+		Parents: []*github.Commit{{SHA: github.String(latestCommitSha)}},
+	}
+
+	commitOP := &github.CreateCommitOptions{}
+	newCommit, _, err := client.Git.CreateCommit(ctx, forkedRepoAccount, EKSAnyrepoName, commit, commitOP)
+	if err != nil {
+		return fmt.Errorf("creating commit %s", err)
+	}
+	newCommitSHA := newCommit.GetSHA()
+
+	// update branch reference
+	ref.Object.SHA = github.String(newCommitSHA)
+
+	_, _, err = client.Git.UpdateRef(ctx, forkedRepoAccount, EKSAnyrepoName, ref, false)
+	if err != nil {
+		return fmt.Errorf("error updating ref %s", err)
+	}
+
+	
+	// create pull request
+	base := latestRelease
+	head := fmt.Sprintf("%s:%s", forkedRepoAccount, latestRelease+"-releaser-patch")
+	title := "Update version files to stage production bundle release"
+	body := "This pull request is responsible for updating the contents of 3 seperate files in order to trigger the production bundle release pipeline"
+
+	newPR := &github.NewPullRequest{
+		Title: &title,
+		Head:  &head,
+		Base:  &base,
+		Body:  &body,
+	}
+
+	pr, _, err := client.PullRequests.Create(ctx, upStreamRepoOwner, EKSAnyrepoName, newPR)
+	if err != nil {
+		return fmt.Errorf("error creating PR %s", err)
+	}
+
+	log.Printf("Pull request created: %s\n", pr.GetHTMLURL())
+	return nil
+	
+
 }
 
-func updateProdMaxVersion() error {
+func updateProdMaxVersion(releaseType string) error {
+
+	if releaseType == "minor"{
 
 	// create client 
 	accessToken := os.Getenv("SECRET_PAT")
@@ -205,9 +294,73 @@ func updateProdMaxVersion() error {
 	}
 
 	return nil
+
+	}
+
+	// else 
+	// create client 
+	accessToken := os.Getenv("SECRET_PAT")
+	ctx := context.Background()
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+
+
+	latestVersion := os.Getenv("LATEST_VERSION")
+	latestRelease := os.Getenv("LATEST_RELEASE")
+	
+
+	// get latest commit sha from "eks-a-releaser" branch
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease+"-releaser-patch")
+	if err != nil {
+		return fmt.Errorf("error getting ref %s", err)
+	}
+	latestCommitSha := ref.Object.GetSHA()
+
+	entries := []*github.TreeEntry{}
+	entries = append(entries, &github.TreeEntry{Path: github.String(strings.TrimPrefix(prodCliMaxVersionPath, "/")), Type: github.String("blob"), Content: github.String(string(latestVersion)), Mode: github.String("100644")})
+	tree, _, err := client.Git.CreateTree(ctx, forkedRepoAccount, EKSAnyrepoName, *ref.Object.SHA, entries)
+	if err != nil {
+		return fmt.Errorf("error creating tree %s", err)
+	}
+
+	//validate tree sha
+	newTreeSHA := tree.GetSHA()
+
+	// create new commit
+	author := &github.CommitAuthor{
+		Name:  github.String("ibix16"),
+		Email: github.String("fake@wtv.com"),
+	}
+
+	commit := &github.Commit{
+		Message: github.String("Update production max version file"),
+		Tree:    &github.Tree{SHA: github.String(newTreeSHA)},
+		Author:  author,
+		Parents: []*github.Commit{{SHA: github.String(latestCommitSha)}},
+	}
+
+	commitOP := &github.CreateCommitOptions{}
+	newCommit, _, err := client.Git.CreateCommit(ctx, forkedRepoAccount, EKSAnyrepoName, commit, commitOP)
+	if err != nil {
+		return fmt.Errorf("creating commit %s", err)
+	}
+	newCommitSHA := newCommit.GetSHA()
+
+	// update branch reference
+	ref.Object.SHA = github.String(newCommitSHA)
+
+	_, _, err = client.Git.UpdateRef(ctx, forkedRepoAccount, EKSAnyrepoName, ref, false)
+	if err != nil {
+		return fmt.Errorf("error updating ref %s", err)
+	}
+
+	return nil
+
+	
 }
 
-func updateProdMinVersion() error {
+func updateProdMinVersion(releaseType string) error {
+
+	if releaseType == "minor"{
 
 	// create client 
 	accessToken := os.Getenv("SECRET_PAT")
@@ -220,6 +373,65 @@ func updateProdMinVersion() error {
 
 	// get latest commit sha from "eks-a-releaser" branch
 	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease)
+	if err != nil {
+		return fmt.Errorf("error getting ref %s", err)
+	}
+	latestCommitSha := ref.Object.GetSHA()
+
+	entries := []*github.TreeEntry{}
+	entries = append(entries, &github.TreeEntry{Path: github.String(strings.TrimPrefix(prodCliMinVersionPath, "/")), Type: github.String("blob"), Content: github.String(string(latestVersion)), Mode: github.String("100644")})
+	tree, _, err := client.Git.CreateTree(ctx, forkedRepoAccount, EKSAnyrepoName, *ref.Object.SHA, entries)
+	if err != nil {
+		return fmt.Errorf("error creating tree %s", err)
+	}
+
+	//validate tree sha
+	newTreeSHA := tree.GetSHA()
+
+	// create new commit
+	author := &github.CommitAuthor{
+		Name:  github.String("ibix16"),
+		Email: github.String("fake@wtv.com"),
+	}
+
+	commit := &github.Commit{
+		Message: github.String("Update production min version file"),
+		Tree:    &github.Tree{SHA: github.String(newTreeSHA)},
+		Author:  author,
+		Parents: []*github.Commit{{SHA: github.String(latestCommitSha)}},
+	}
+
+	commitOP := &github.CreateCommitOptions{}
+	newCommit, _, err := client.Git.CreateCommit(ctx, forkedRepoAccount, EKSAnyrepoName, commit, commitOP)
+	if err != nil {
+		return fmt.Errorf("creating commit %s", err)
+	}
+	newCommitSHA := newCommit.GetSHA()
+
+	// update branch reference
+	ref.Object.SHA = github.String(newCommitSHA)
+
+	_, _, err = client.Git.UpdateRef(ctx, forkedRepoAccount, EKSAnyrepoName, ref, false)
+	if err != nil {
+		return fmt.Errorf("error updating ref %s", err)
+	}
+
+	return nil
+
+	}
+
+	// else 
+	// create client 
+	accessToken := os.Getenv("SECRET_PAT")
+	ctx := context.Background()
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+
+
+	latestVersion := os.Getenv("LATEST_VERSION")
+	latestRelease := os.Getenv("LATEST_RELEASE")
+
+	// get latest commit sha from "eks-a-releaser" branch
+	ref, _, err := client.Git.GetRef(ctx, forkedRepoAccount, EKSAnyrepoName, "heads/"+latestRelease+"-releaser-patch")
 	if err != nil {
 		return fmt.Errorf("error getting ref %s", err)
 	}

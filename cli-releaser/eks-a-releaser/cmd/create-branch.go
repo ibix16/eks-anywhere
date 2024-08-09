@@ -42,7 +42,6 @@ and usage of using your command.`,
 	},
 }
 
-// ibix 16 PAT holds access to both repo's
 func createAnywhereBranch() error {
 
 	latestRelease := os.Getenv("LATEST_RELEASE")
@@ -53,7 +52,7 @@ func createAnywhereBranch() error {
 	client := github.NewClient(nil).WithAuthToken(accessToken)
 
 
-	// create branch in forked repo based off upstream
+	// create branch in upstream repo based off main branch
 	ref := "refs/heads/" + latestRelease
 	baseRef :=  "main"
 	

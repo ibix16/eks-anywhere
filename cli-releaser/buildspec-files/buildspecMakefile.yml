@@ -16,4 +16,4 @@ phases:
   build:
     commands:
       - echo "Deploying Go CLI binary..."
-      - ./eks-a-releaser-cli create-release
+      - ./eks-a-releaser-cli update-makefile

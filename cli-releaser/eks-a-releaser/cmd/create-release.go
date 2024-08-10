@@ -8,13 +8,7 @@ package cmd
 
 	this command is responsible for creating a release tag with the commit hash that triggered the prod CLI release
 
-	func retrieveLatestProdCLIHash() - retrieves the latest commit hash from the prod release version file, "eks-a-releaser" branch - bot's forked repo
-
-	func createTag() - takes in commit hash and creates a tag
-
-	func createGitHubRelease() - creates a release on GitHub using the tag created in createTag()
-
-	func runBothTag() - runs both createTag() and createGitHubRelease()
+	depending on release type, either minor or patch branch will be checked to retrieve commit hash
 */
 
 import (

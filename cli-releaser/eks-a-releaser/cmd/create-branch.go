@@ -6,9 +6,13 @@ package cmd
 /*
 	what does this command do?
 
-	creates a new release branch in upstream repo based off "main"
+	if release type is "minor" then :
+	creates a new release branch in upstream eks-a repo based off "main" & build tooling repo (include)
 
 	creates a new release branch in forked repo based off newly created release branch in upstream repo
+
+	else :
+	creates a new patch branch in users forked repo based off latest release branch upstream
 
 */
 
@@ -35,14 +39,34 @@ and usage of using your command.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 
-		err := createAnywhereBranch()
+		err := releaseDecision()
 		if err != nil {
-			fmt.Printf("error calling createAnywhereBranch %s", err)
+			fmt.Printf("error creating branch %s", err)
 		}
 	},
 }
 
-func createAnywhereBranch() error {
+
+func releaseDecision() error{
+	RELEASE_TYPE := os.Getenv("RELEASE_TYPE")
+
+	if RELEASE_TYPE == "minor"{
+		err := createMinorBranches()
+		if err != nil {
+			fmt.Printf("error calling createAnywhereBranch %s", err)
+		}
+		return nil
+	}
+	// else 
+	err := createPatchBranch()
+	if err != nil {
+		fmt.Printf("error calling createAnywhereBranch %s", err)
+	}
+	return nil
+}
+
+
+func createMinorBranches() error {
 
 	latestRelease := os.Getenv("LATEST_RELEASE")
 
@@ -107,3 +131,42 @@ func createAnywhereBranch() error {
 	return nil
 }
 
+func createPatchBranch()error{
+
+	latestRelease := os.Getenv("LATEST_RELEASE")
+
+	//create client
+	accessToken := os.Getenv("SECRET_PAT")
+	ctx := context.Background()
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+
+
+	// create branch in forked repo based off upstream
+	ref := "refs/heads/" + latestRelease + "-releaser-patch"
+	baseRef :=  latestRelease
+	
+
+	// Get the reference for the base branch from upstream
+	baseRefObj, _, err := client.Git.GetRef(ctx, upStreamRepoOwner, EKSAnyrepoName, "heads/"+baseRef)
+	if err != nil {
+		return fmt.Errorf("error getting base branch reference: %v", err)
+	}
+
+	// Create a new branch in fork
+	newBranchRef, _, err := client.Git.CreateRef(ctx, usersForkedRepoAccount, EKSAnyrepoName, &github.Reference{
+		Ref: &ref,
+		Object: &github.GitObject{
+			SHA: baseRefObj.Object.SHA,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("error creating branch: %v", err)
+	}
+
+
+	// branch created upstream
+	fmt.Printf("New branch '%s' created successfully\n", *newBranchRef.Ref)
+
+
+	return nil
+}

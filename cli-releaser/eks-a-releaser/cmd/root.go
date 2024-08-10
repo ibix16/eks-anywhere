@@ -53,5 +53,4 @@ func init() {
 	rootCmd.AddCommand(updateHomebrewCmd)
 	rootCmd.AddCommand(createReleaseCmd)
 	rootCmd.AddCommand(prowMakeCmdCmd)
-	rootCmd.AddCommand(createPatchBranchCmd)
 }

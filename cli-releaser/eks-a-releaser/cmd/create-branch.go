@@ -7,7 +7,7 @@ package cmd
 	what does this command do?
 
 	if release type is "minor" then :
-	creates a new release branch in upstream eks-a repo based off "main" & build tooling repo (include)
+	creates a new release branch in upstream eks-a repo based off "main" & build tooling repo 
 
 	creates a new release branch in forked repo based off newly created release branch in upstream repo
 
@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	//buildToolingRepoName = "eks-anywhere-build-tooling"
+	buildToolingRepoName = "eks-anywhere-build-tooling"
 	upStreamRepoOwner = "testerIbix" // will eventually be replaced by actual upstream owner, aws
 )
 
@@ -53,14 +53,14 @@ func releaseDecision() error{
 	if RELEASE_TYPE == "minor"{
 		err := createMinorBranches()
 		if err != nil {
-			fmt.Printf("error calling createAnywhereBranch %s", err)
+			fmt.Printf("error calling createMinorBranches %s", err)
 		}
 		return nil
 	}
 	// else 
 	err := createPatchBranch()
 	if err != nil {
-		fmt.Printf("error calling createAnywhereBranch %s", err)
+		fmt.Printf("error calling createPatchBranch %s", err)
 	}
 	return nil
 }
@@ -84,7 +84,7 @@ func createMinorBranches() error {
 	// Get the reference for the base branch 
 	baseRefObj, _, err := client.Git.GetRef(ctx, upStreamRepoOwner, EKSAnyrepoName, "heads/"+baseRef)
 	if err != nil {
-		return fmt.Errorf("error getting base branch reference: %v", err)
+		return fmt.Errorf("error getting base branch reference one: %v", err)
 	}
 
 	// Create a new branch
@@ -95,12 +95,12 @@ func createMinorBranches() error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("error creating branch: %v", err)
+		return fmt.Errorf("error creating branch one: %v", err)
 	}
 
 
 	// branch created upstream
-	fmt.Printf("New branch '%s' created successfully\n", *newBranchRef.Ref)
+	fmt.Printf("New release branch '%s' created upstream successfully\n", *newBranchRef.Ref)
 
 
 	// create branch in forked repo based off upstream
@@ -110,7 +110,7 @@ func createMinorBranches() error {
 	// Get the reference for the base branch from the upstream repository
 	baseRefObj, _, err = client.Git.GetRef(ctx, upStreamRepoOwner, EKSAnyrepoName, "heads/"+baseRef)
 	if err != nil {
-		return fmt.Errorf("error getting base branch reference: %v", err)
+		return fmt.Errorf("error getting base branch reference two: %v", err)
 	}
 
 	// Create a new branch
@@ -121,11 +121,43 @@ func createMinorBranches() error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("error creating branch: %v", err)
+		return fmt.Errorf("error creating branch two: %v", err)
 	}
 
 	// branch created upstream
-	fmt.Printf("New branch '%s' created successfully\n", *newBranchRef.Ref)
+	fmt.Printf("New user fork branch '%s' created successfully\n", *newBranchRef.Ref)
+
+
+
+
+
+	// create branch in upstream build tooling repo based off main branch
+	ref = "refs/heads/" + latestRelease
+	baseRef =  "main"
+	
+
+	// Get the reference for the base branch 
+	baseRefObj, _, err = client.Git.GetRef(ctx, upStreamRepoOwner, buildToolingRepoName, "heads/"+baseRef)
+	if err != nil {
+		return fmt.Errorf("error getting base branch reference three: %v", err)
+	}
+
+	// Create a new branch
+	newBranchRef, _, err = client.Git.CreateRef(ctx, upStreamRepoOwner, buildToolingRepoName, &github.Reference{
+		Ref: &ref,
+		Object: &github.GitObject{
+			SHA: baseRefObj.Object.SHA,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("error creating branch three: %v", err)
+	}
+
+
+	// branch created upstream
+	fmt.Printf("New build tooling branch '%s' created successfully\n", *newBranchRef.Ref)
+
+
 
 
 	return nil

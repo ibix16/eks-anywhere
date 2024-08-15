@@ -1,5 +1,7 @@
 version: 0.2
-
+env:
+  secrets-manager:
+    SECRET_PAT: "Secret:PAT"
 phases:
   install:
     commands:

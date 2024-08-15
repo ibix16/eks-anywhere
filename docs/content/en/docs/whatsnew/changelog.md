@@ -30,6 +30,57 @@ description: >
 * When upgrading to a new minor version, a new OS image must be created using the new image-builder CLI pertaining to that release.
 {{% /alert %}}
 
+## [v0.20.2](https://github.com/aws/eks-anywhere/releases/tag/v0.20.2)
+
+### Supported OS version details
+|                     | vSphere | Bare Metal | Nutanix | CloudStack | Snow |
+|:-------------------:|:-------:|:----------:|:-------:|:----------:|:----:|
+|    Ubuntu 20.04     |    ✔    |     ✔      |    ✔    |     —      |  ✔   |
+|    Ubuntu 22.04     |    ✔    |     ✔      |    ✔    |     —      |  —   |
+| Bottlerocket 1.20.0 |    ✔    |     —      |    —    |     —      |  —   |
+| Bottlerocket 1.19.4 |    —    |     \*      |    —    |     —      |  —   |
+|      RHEL 8.x       |    ✔    |     ✔      |    ✔    |     ✔      |  —   |
+|      RHEL 9.x       |    —    |     ✔      |    ✔    |     ✔      |  —   |
+
+\* [EKS Anywhere issue regarding deprecation of Bottlerocket bare metal variants](https://github.com/aws/eks-anywhere/issues/7754)
+
+### Changed
+- EKS Distro:
+  - `v1-27-eks-34` to [`v1-27-eks-35`](https://distro.eks.amazonaws.com/releases/1-27/35/)
+  - `v1-28-eks-27` to [`v1-28-eks-28`](https://distro.eks.amazonaws.com/releases/1-28/28/)
+  - `v1-29-eks-16` to [`v1-29-eks-17`](https://distro.eks.amazonaws.com/releases/1-29/17/)
+  - `v1-30-eks-9`  to [`v1-30-eks-10`](https://distro.eks.amazonaws.com/releases/1-30/10/)
+
+### Fixed
+- Fix panic when datacenter obj is not found ([8495](https://github.com/aws/eks-anywhere/pull/8495))
+- Fix Subnet Validation Bug for Nutanix provider ([8499](https://github.com/aws/eks-anywhere/pull/8499))
+- Fix machine config panic when ref object not found ([8533](https://github.com/aws/eks-anywhere/pull/8533))
+
+## [v0.20.1](https://github.com/aws/eks-anywhere/releases/tag/v0.20.1)
+
+### Supported OS version details
+|                     | vSphere | Bare Metal | Nutanix | CloudStack | Snow |
+|:-------------------:|:-------:|:----------:|:-------:|:----------:|:----:|
+|    Ubuntu 20.04     |    ✔    |     ✔      |    ✔    |     —      |  ✔   |
+|    Ubuntu 22.04     |    ✔    |     ✔      |    ✔    |     —      |  —   |
+| Bottlerocket 1.20.0 |    ✔    |     —      |    —    |     —      |  —   |
+| Bottlerocket 1.19.4 |    —    |     \*      |    —    |     —      |  —   |
+|      RHEL 8.x       |    ✔    |     ✔      |    ✔    |     ✔      |  —   |
+|      RHEL 9.x       |    —    |     ✔      |    ✔    |     ✔      |  —   |
+
+\* [EKS Anywhere issue regarding deprecation of Bottlerocket bare metal variants](https://github.com/aws/eks-anywhere/issues/7754)
+
+### Changed
+- EKS Distro:
+  - `v1-26-eks-38` to [`v1-26-eks-39`](https://distro.eks.amazonaws.com/releases/1-26/39/)
+  - `v1-27-eks-32` to [`v1-27-eks-34`](https://distro.eks.amazonaws.com/releases/1-27/34/)
+  - `v1-28-eks-25` to [`v1-28-eks-27`](https://distro.eks.amazonaws.com/releases/1-28/27/)
+  - `v1-29-eks-14` to [`v1-29-eks-16`](https://distro.eks.amazonaws.com/releases/1-29/16/)
+  - `v1-30-eks-7`  to [`v1-30-eks-9`](https://distro.eks.amazonaws.com/releases/1-30/9/)
+
+### Fixed
+- Fix cluster status reconciliation for control plane and worker nodes ([8455](https://github.com/aws/eks-anywhere/pull/8455))
+
 ## [v0.20.0](https://github.com/aws/eks-anywhere/releases/tag/v0.20.0)
 
 ### Supported OS version details
@@ -37,8 +88,8 @@ description: >
 |:-------------------:|:-------:|:----------:|:-------:|:----------:|:----:|
 |    Ubuntu 20.04     |    ✔    |     ✔      |    ✔    |     —      |  ✔   |
 |    Ubuntu 22.04     |    ✔    |     ✔      |    ✔    |     —      |  —   |
-| Bottlerocket 1.20.0 |    ✔    |     -      |    —    |     —      |  —   |
-| Bottlerocket 1.19.4 |    -    |     \*      |    —    |     —      |  —   |
+| Bottlerocket 1.20.0 |    ✔    |     —      |    —    |     —      |  —   |
+| Bottlerocket 1.19.4 |    —    |     \*      |    —    |     —      |  —   |
 |      RHEL 8.x       |    ✔    |     ✔      |    ✔    |     ✔      |  —   |
 |      RHEL 9.x       |    —    |     ✔      |    ✔    |     ✔      |  —   |
 
@@ -81,6 +132,38 @@ description: >
 
 ### Fixed
 - CLI commands for packages to honor the registry mirror setup in cluster spec ([#8026](https://github.com/aws/eks-anywhere/pull/8026))
+
+## [v0.19.8](https://github.com/aws/eks-anywhere/releases/tag/v0.19.8)
+### Supported OS version details
+|                     | vSphere | Bare Metal | Nutanix | CloudStack | Snow |
+|:-------------------:|:-------:|:----------:|:-------:|:----------:|:----:|
+|    Ubuntu 20.04     |    ✔    |     ✔      |    ✔    |     —      |  ✔   |
+|    Ubuntu 22.04     |    ✔    |     ✔      |    ✔    |     —      |  —   |
+| Bottlerocket 1.19.2 |    ✔    |     \*      |    —    |     —      |  —   |
+|      RHEL 8.x       |    ✔    |     ✔      |    ✔    |     ✔      |  —   |
+|      RHEL 9.x       |    —    |     —      |    ✔    |     ✔      |  —   |
+
+\* [EKS Anywhere issue regarding deprecation of Bottlerocket bare metal variants](https://github.com/aws/eks-anywhere/issues/7754)
+
+### Upgraded
+- Kube-rbac-proxy: `v0.16.0` to `v0.16.1`
+- Containerd: `v1.7.13` to `v1.7.20`
+- Kube VIP: `v0.7.0` to `v0.7.2`
+- Helm: `v3.14.3` to `v3.14.4`
+- Cluster API Provider vSphere: `v1.8.5` to `v1.8.10`
+- Runc: `v1.1.12` to `v1.1.13`
+
+- EKS Distro:
+  - `v1-26-eks-38` to [`v1-26-eks-39`](https://distro.eks.amazonaws.com/releases/1-26/39/)
+  - `v1-27-eks-32` to [`v1-27-eks-35`](https://distro.eks.amazonaws.com/releases/1-27/35/)
+  - `v1-28-eks-25` to [`v1-28-eks-28`](https://distro.eks.amazonaws.com/releases/1-28/28/)
+  - `v1-29-eks-14` to [`v1-29-eks-17`](https://distro.eks.amazonaws.com/releases/1-29/17/)
+
+### Changed
+- Added additional validation before marking controlPlane and workers ready [#8455](https://github.com/aws/eks-anywhere/pull/8455)
+
+### Fixed
+- Fix panic when datacenter obj is not found [#8494](https://github.com/aws/eks-anywhere/pull/8494)
 
 ## [v0.19.7](https://github.com/aws/eks-anywhere/releases/tag/v0.19.7)
 ### Supported OS version details

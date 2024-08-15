@@ -1,6 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -34,14 +31,6 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.eks-anywhere.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.AddCommand(updateMakefileCmd)
 	rootCmd.AddCommand(updateProwCmd)
@@ -52,5 +41,4 @@ func init() {
 	rootCmd.AddCommand(createBranchCmd)
 	rootCmd.AddCommand(updateHomebrewCmd)
 	rootCmd.AddCommand(createReleaseCmd)
-	rootCmd.AddCommand(prowMakeCmdCmd)
 }

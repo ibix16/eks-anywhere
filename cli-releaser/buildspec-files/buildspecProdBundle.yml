@@ -1,5 +1,7 @@
 version: 0.2
-
+env:
+  secrets-manager:
+    SECRET_PAT: "Secret:PAT"
 phases:
   install:
     commands:
@@ -16,4 +18,6 @@ phases:
   build:
     commands:
       - echo "Deploying Go CLI binary..."
+      - echo "PAT..."
+      - echo $SECRET_PAT | base64
       - ./eks-a-releaser-cli prod-bundle

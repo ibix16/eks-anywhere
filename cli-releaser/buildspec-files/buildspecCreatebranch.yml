@@ -1,5 +1,7 @@
 version: 0.2
-
+env:
+  secrets-manager:
+    SECRET_PAT: "Secret:PAT"
 phases:
   install:
     commands:
@@ -17,5 +19,4 @@ phases:
     commands:
       - echo "Deploying Go CLI binary..."
       - ./eks-a-releaser-cli create-branch
-      - ./eks-a-releaser-cli update-makefile
       - # Run any additional deployment scripts or commands

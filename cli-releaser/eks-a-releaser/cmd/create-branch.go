@@ -1,13 +1,10 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 /*
 	what does this command do?
 
 	if release type is "minor" then :
-	creates a new release branch in upstream eks-a repo based off "main" & build tooling repo 
+	creates a new release branch in upstream eks-a repo based off "main" & build tooling repo
 
 	creates a new release branch in forked repo based off newly created release branch in upstream repo
 
@@ -128,9 +125,6 @@ func createMinorBranches() error {
 	fmt.Printf("New user fork branch '%s' created successfully\n", *newBranchRef.Ref)
 
 
-
-
-
 	// create branch in upstream build tooling repo based off main branch
 	ref = "refs/heads/" + latestRelease
 	baseRef =  "main"
@@ -156,8 +150,6 @@ func createMinorBranches() error {
 
 	// branch created upstream
 	fmt.Printf("New build tooling branch '%s' created successfully\n", *newBranchRef.Ref)
-
-
 
 
 	return nil

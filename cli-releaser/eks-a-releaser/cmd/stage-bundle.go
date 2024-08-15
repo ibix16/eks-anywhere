@@ -1,6 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 /*
@@ -8,7 +5,7 @@ package cmd
 
 	this command is responsible for staging bundle release
 
-	A PR is then created originating from the forked repo targeting the upstream repo latest release branch
+	A PR is created originating from the forked repo targeting the upstream repo latest release branch
 
 	changes are committed into branch depending on release type
 */
@@ -48,7 +45,6 @@ var stageBundleCmd = &cobra.Command{
 			if err != nil {
 				log.Fatal(err)
 			}
-		
 	},
 }
 
@@ -76,16 +72,18 @@ func runAllStagebundle() error {
 
 func updateFilesStageBundle(releaseType string) (string, error) {
 
-
+	// create client
 	accessToken := os.Getenv("SECRET_PAT")
 	ctx := context.Background()
 	client := github.NewClient(nil).WithAuthToken(accessToken)
 
+
+	// env variables
 	bundleNumber := os.Getenv("RELEASE_NUMBER")
 	latestVersion := os.Getenv("LATEST_VERSION")
 	latestRelease := os.Getenv("LATEST_RELEASE")
 
-	// Get the latest commit SHA from the appropriate branch
+	// Get the latest commit SHA from the appropriate branch, patch vs minor 
 	ref, _, err := client.Git.GetRef(ctx, usersForkedRepoAccount, EKSAnyrepoName, "heads/"+getBranchName(releaseType, latestRelease))
 	if err != nil {
 		return "", fmt.Errorf("error getting ref %s", err)

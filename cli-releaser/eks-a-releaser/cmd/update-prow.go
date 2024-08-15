@@ -1,325 +1,303 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 /*
 	what does this command do?
 
-	currently :
+	(1) creates a folder on user's Desktop
+	(2) clones github prow repo (update account name)
+	(3) Renames templater file and updates contents
+	(4) executes make command
+	(5) creates a branch on user's fork of prow repo
+	(6) stages, commits, and pushes changes to newly created branch
+	(7) creates PR targeting upstream "main" branch
 
-	updateTemplaterFile() - accessess the templater file from the provided path on "main" branch, forked repo
-	retrieves content from templater file
-
-	updates file content to point to new release, stores updated file content in a variable
-	creates new file path/name by altering previous file & updating "release-0.00.yaml" portion
-
-	deletes previously exisiting file using previous file path/name ~ templaterFilePath
-	creates a new file using the updated file path/name and the updated file content
-
-	commits changes to prow-jobs repo latest release branch, forked repo
-
-	raises PR with commits targeting upstream repo "main" branch
+	Only command to include local cloning of repo
 */
+
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
+	"github.com/aws/eks-anywhere-build-tooling/tools/version-tracker/pkg/util/command"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/google/go-github/v62/github"
 	"github.com/spf13/cobra"
 )
-
 var (
-	prowRepo      = "eks-anywhere-prow-jobs"
+	prowRepo = "eks-anywhere-prow-jobs"
 )
-
 // upProwCmd represents the upProw command
 var updateProwCmd = &cobra.Command{
 	Use:   "update-prow",
 	Short: "accesses prow-jobs repo and updates version files",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command.`,
-
+	Long:  `A`,
 	Run: func(cmd *cobra.Command, args []string) {
-		updateTemplaterFile()
+		updateProw()
 	},
 }
+func updateProw() {
 
-
-func updateTemplaterFile() {
-
-	// var holds latest release retrieved from trigger file
 	latestRelease := os.Getenv("LATEST_RELEASE")
 
-	// var holds latest file name
-	latestFileName, err := FetchFileName(usersForkedRepoAccount, prowRepo, "templater/jobs/periodic/eks-anywhere-build-tooling", "eks-a-releaser")
+	// Step 1: Create a folder on the user's desktop
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Print("error fetching file names", err)
+		fmt.Printf("error getting user home directory: %v", err)
+		return
+	}
+	desktopPath := filepath.Join(homeDir, "Desktop")
+	newFolderPath := filepath.Join(desktopPath, "ProwJobsRepo")
+	err = os.Mkdir(newFolderPath, 0755)
+	if err != nil {
+		fmt.Println("Error creating folder:", err)
+		return
+	}
+	fmt.Println("Folder created successfully at:", newFolderPath)
+
+	//clones github repo into newly created folder
+	clonedRepoDestination := filepath.Join(homeDir, "Desktop", "ProwJobsRepo")
+	repo, err := cloneRepo("https://github.com/ibix16/eks-anywhere-prow-jobs", clonedRepoDestination)
+	if err != nil {
+		fmt.Printf("error cloning repo: %v", err)
+		return
 	}
 
-	// var holds updated full file path
-	templaterFilePath := "/templater/jobs/periodic/eks-anywhere-build-tooling/" + latestFileName
+	// Step 2: Rename the file with the latest version
+	originalFilePath, err := retrieveFilePath(clonedRepoDestination + "/templater/jobs/periodic/eks-anywhere-build-tooling")
+	if err != nil {
+		fmt.Printf("error fetching path to file on cloned repo: %v", err)
+	}
+	newFilePath := clonedRepoDestination + "/templater/jobs/periodic/eks-anywhere-build-tooling/eks-anywhere-attribution-periodics-" + latestRelease + ".yaml"
+	err = os.Rename(originalFilePath, newFilePath)
+	if err != nil {
+		fmt.Printf("error renaming file: %v", err)
+		return
+	}
 
-	// create client 
+	// Step 3: Update file contents
+	convertedRelease := strings.Replace(latestRelease, ".", "-", 1)
+	content, err := ioutil.ReadFile(newFilePath)
+	if err != nil {
+		log.Fatalf("Failed to read file: %v", err)
+	}
+	releasePattern := regexp.MustCompile(`release-0\.\d+\d+`)
+	jobNamePattern := regexp.MustCompile(`release-0-\d+\d+`)
+	updatedContent := releasePattern.ReplaceAllString(string(content), latestRelease)
+	updatedContent = jobNamePattern.ReplaceAllString(updatedContent, convertedRelease)
+	err = ioutil.WriteFile(newFilePath, []byte(updatedContent), 0644)
+	if err != nil {
+		log.Fatalf("Failed to write file: %v", err)
+	}
+	fmt.Println("File updated successfully.")
+ 
+
+	// Execute make command
+	err = makeCommand()
+	if err != nil {
+		fmt.Printf("error running make command: %v", err)
+		return
+	}
+	fmt.Println("Make command executed successfully.")
+
+ 
+	// Create a branch in the user's forked repo
+	err = createProwBranch(usersForkedRepoAccount, prowRepo)
+	if err != nil {
+		fmt.Printf("error creating branch: %v", err)
+		return
+	}
+ 
+	// Commit and push changes to the branch
+	err = commitAndPushChanges(repo, latestRelease+"-releaser")
+	if err != nil {
+		fmt.Printf("error pushing changes to branch: %v", err)
+		return
+	}
+	fmt.Println("Changes pushed successfully.")
+ 
+	// Create PR
+	err = createProwPr()
+	if err != nil {
+		fmt.Printf("error creating PR: %v", err)
+		return
+	}
+
+	// delete folder 
+	err = os.RemoveAll(clonedRepoDestination)
+	if err != nil {
+		fmt.Printf("error deleting folder: %s", err)
+	}
+
+	fmt.Println("Folder deleted successfully from desktop.")
+
+}
+// return full system file path to templater file on cloned repo
+func retrieveFilePath(directory string) (string, error) {
+	var filePath string
+	err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err // Return the error immediately
+		}
+		if !info.IsDir() && strings.Contains(info.Name(), "release-0.") {
+			filePath = path
+			return nil // Stop walking after finding the first matching file
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err // Return the error if one occurred during the walk
+	}
+	if filePath == "" {
+		return "", fmt.Errorf("no file found with 'release-0.' in its name")
+	}
+	return filePath, nil
+}
+// clones prow jobs repo on local machine destination
+func cloneRepo(cloneURL, destination string) (*git.Repository, error) {
+	repo, err := git.PlainClone(destination, false, &git.CloneOptions{
+		URL:      cloneURL,
+		Progress: os.Stdout,
+	})
+	if err != nil {
+		if err == git.ErrRepositoryAlreadyExists {
+			fmt.Printf("Repo already exists at %s\n", destination)
+			repo, err = git.PlainOpen(destination)
+			if err != nil {
+				return nil, fmt.Errorf("opening repo from %s directory: %v", destination, err)
+			}
+		} else {
+			return nil, fmt.Errorf("cloning repo %s to %s directory: %v", cloneURL, destination, err)
+		}
+	}
+	return repo, nil
+}
+// function to execute make command located within templater dir
+func makeCommand() error {
+	desktopPath, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Printf("error getting user home directory: %v", err)
+		return nil
+	}
+	clonedRepoPath := filepath.Join(desktopPath, "Desktop", "ProwJobsRepo")
+	templaterDirPath := filepath.Join(clonedRepoPath, "templater")
+	updateProwJobsCommandSequence := fmt.Sprintf("make prowjobs -C %s", templaterDirPath)
+	updateProwJobsCmd := exec.Command("bash", "-c", updateProwJobsCommandSequence)
+	_, err = command.ExecCommand(updateProwJobsCmd)
+	if err != nil {
+		return fmt.Errorf("running make prowjobs command: %v", err)
+	}
+	return nil
+}
+
+
+func createProwBranch(owner, repo string) error {
+ 
+	latestRelease := os.Getenv("LATEST_RELEASE")
 	accessToken := os.Getenv("SECRET_PAT")
 	ctx := context.Background()
 	client := github.NewClient(nil).WithAuthToken(accessToken)
-
-	opts := &github.RepositoryContentGetOptions{
-		Ref: "main", // branch to access
-	}
-
-	// access templater file on main branch and retrieve entire file contents
-	templaterFileContent, _, _, err := client.Repositories.GetContents(ctx, usersForkedRepoAccount, prowRepo, templaterFilePath, opts)
+ 
+	// Get the latest commit on the "main" branch
+	mainBranch, _, err := client.Git.GetRef(ctx, owner, repo, "refs/heads/main")
 	if err != nil {
-		fmt.Print("first breakpoint", err)
+		return fmt.Errorf("failed to get 'main' branch: %v", err)
 	}
-
-	// var "content" holds entire string of templater file
-	content, err := templaterFileContent.GetContent()
+	latestCommit, _, err := client.Git.GetCommit(ctx, owner, repo, *mainBranch.Object.SHA)
 	if err != nil {
-		fmt.Print("second breakpoint", err)
+		return fmt.Errorf("failed to get latest commit: %v", err)
 	}
-
-	// update jobName field, isolate line
-	nameSnippetStartIdentifier := "jobName: "
-	Firstlines := strings.Split(content, "\n")
-	startIndex := -1
-	endIndex := -1
-
-	for i, line := range Firstlines {
-		if strings.Contains(line, nameSnippetStartIdentifier) {
-			startIndex = i
-			endIndex = i // Set endIndex to the same line as startIndex
-			break
-		}
+	// Create a new reference for the branch
+	newRef := &github.Reference{
+		Ref: github.String("refs/heads/" + latestRelease + "-releaser"),
+		Object: &github.GitObject{
+			SHA: latestCommit.SHA,
+		},
 	}
-	if startIndex == -1 && endIndex == -1 {
-		// return fmt.Errorf("snippet not found", nil)  // Snippet not found
-		log.Panic("snippet not found...")
-	}
-
-	// holds string - name: eks-anywhere-attribution-periodic-release-0-19
-	nameLine := Firstlines[startIndex]
-
-	jobNameLineParts := strings.Split(nameLine, "release-")
-
-	// holds string 0-19
-	jobNameLineReleasePortion := jobNameLineParts[1]
-
-	// latestRelease var holds release-0.00 from trigger file
-	// we want to isolate the numerical portion
-	// and convert it from 0.00 ---> 0-00
-	splitLatestRelease := strings.Split(latestRelease, ".")
-	targetLatestReleaseValue := splitLatestRelease[1]
-
-	// var holds 0-21
-	convertedTargetLatestReleaseValue := "0-" + targetLatestReleaseValue
-
-	firstUpdatedFile := strings.ReplaceAll(content, jobNameLineReleasePortion, convertedTargetLatestReleaseValue)
-
-	// update jobName field, isolate line
-	nameSnippetStartIdentifier = "value: "
-	Firstlines = strings.Split(content, "\n")
-	startIndex = -1
-	endIndex = -1
-
-	for i, line := range Firstlines {
-		if strings.Contains(line, nameSnippetStartIdentifier) {
-			startIndex = i
-			endIndex = i // Set endIndex to the same line as startIndex
-			break
-		}
-	}
-	if startIndex == -1 && endIndex == -1 {
-		// return fmt.Errorf("snippet not found", nil)  // Snippet not found
-		log.Panic("snippet not found...")
-	}
-
-	// holds value: release-0.00 from templater file
-	nameLine = Firstlines[startIndex]
-
-	// isolates release-0.00 portion from templater file
-	valueLine := strings.Split(nameLine, ": ")
-	valueLinePortion := valueLine[1]
-
-	// replaces all instances of "release-0.00" with var valueLinePortion, updating both value: line and baseRef: line
-	secondUpdatedFileContent := strings.ReplaceAll(firstUpdatedFile, valueLinePortion, latestRelease)
-
-
-	// all required fields successfully get updated
-
-
-	// variable holds temp file path, removing the leading "/"
-	prevFileName := "templater/jobs/periodic/eks-anywhere-build-tooling/" + latestFileName
-
-	parts := strings.Split(prevFileName, "periodics-")
-
-	// index 1 : release-0.00.yaml
-	// index 0 : /templater/jobs/periodic/eks-anywhere-build-tooling/eks-anywhere-attribution-
-	fmt.Print(parts[0])
-
-	newFilePathString := parts[0] + "periodics-" + latestRelease + ".yaml"
-
-	// by the end of this function we have : the updated content for the file ~ in a string variable : secondUpdatedFile
-	// the updated file path including the file name for the new file that needs to be created ~ in a string variable : newString
-
-
-	err = deleteFile(ctx, client, usersForkedRepoAccount, prowRepo, prevFileName, "eks-a-releaser")
+	// Create the new branch
+	_, _, err = client.Git.CreateRef(ctx, owner, repo, newRef)
 	if err != nil {
-		fmt.Printf("error:  %s", err)
+		return fmt.Errorf("failed to create 'releaser' branch: %v", err)
 	}
-
-	err = createFile(usersForkedRepoAccount, prowRepo, newFilePathString, secondUpdatedFileContent)
-	if err != nil {
-		fmt.Printf("error:  %s", err)
-	}
-
-
-	// insert logic here to execute make command 
-
-
-	err = createPullRequest(ctx, client, "main", "Update Templater File", "This PR updates the templater file for the new release.")
-	if err != nil {
-		fmt.Printf("error:  %s", err)
-	}
+	fmt.Println("Branch created successfully")
+	return nil
 }
 
-func createFile(repoOwner, repoName, filePath, content string) error {
+// Commits and pushes the changes to the new branch
+func commitAndPushChanges(repo *git.Repository, branchName string) error {
 
+	w, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("could not get worktree: %v", err)
+	}
+	// Stage all changes
+	err = w.AddGlob(".")
+	if err != nil {
+		return fmt.Errorf("could not stage changes: %v", err)
+	}
+	// Commit changes
+	_, err = w.Commit("Update prow jobs for "+branchName, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "your-github-username", // Update with your GitHub username
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("could not commit changes: %v", err)
+	}
+	// Push changes to  the new branch
 	accessToken := os.Getenv("SECRET_PAT")
-
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", repoOwner, repoName, filePath)
-
-	encodedContent := base64.StdEncoding.EncodeToString([]byte(content))
-	data := map[string]interface{}{
-		"message": "Create file",
-		"content": encodedContent,
-		"branch":  "eks-a-releaser", // Ensure the changes are made on the eks-a-releaser branch
-	}
-
-	jsonData, err := json.Marshal(data)
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Auth: &http.BasicAuth{
+			Username: "your-github-username", // Update with your GitHub username
+			Password: accessToken,           // GitHub personal access token
+		},
+		RefSpecs: []config.RefSpec{
+			config.RefSpec("refs/heads/main" + ":refs/heads/" + branchName),
+		},
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("could not push changes: %v", err)
 	}
-
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Authorization", "token "+accessToken)
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create file: %s", body)
-	}
-
 	return nil
 }
 
-func deleteFile(ctx context.Context, client *github.Client, repoOwner, repoName, filePath, branch string) error {
-	opts := &github.RepositoryContentGetOptions{Ref: branch}
+// Function to create the PR
+func createProwPr() error {
 
-	// Get the file information to retrieve the SHA
-	fileContent, _, _, err := client.Repositories.GetContents(ctx, repoOwner, repoName, filePath, opts)
-	if err != nil {
-		return fmt.Errorf("failed to get file information: %v", err)
-	}
-
-	sha := fileContent.GetSHA()
-	message := "Delete outdated file"
-	options := &github.RepositoryContentFileOptions{
-		Message: &message,
-		SHA:     &sha,
-		Branch:  &branch,
-	}
-
-	_, _, err = client.Repositories.DeleteFile(ctx, repoOwner, repoName, filePath, options)
-	if err != nil {
-		return fmt.Errorf("failed to delete file: %v", err)
-	}
-
-	return nil
-}
-
-func createPullRequest(ctx context.Context, client *github.Client, baseBranch, title, body string) error {
-
-	head := fmt.Sprintf("%s:%s", usersForkedRepoAccount, "eks-a-releaser")
-
+	latestRelease := os.Getenv("LATEST_RELEASE")
+	// Create a GitHub client
+	accessToken := os.Getenv("SECRET_PAT")
+	ctx := context.Background()
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+	
+	// Create a PR from this branch
+	branchName := latestRelease + "-releaser"
+	base := "main" // target branch in upstream repo
+	head := fmt.Sprintf("%s:%s", usersForkedRepoAccount, branchName) // PR originates from
+	title := "Update Prow Jobs Templater file & execute make command"
+	body := "This pull request contains the most recent commit from the release branch."
 	newPR := &github.NewPullRequest{
-		Title: github.String(title),
+		Title: &title,
 		Head:  &head,
-		Base:  github.String(baseBranch),
-		Body:  github.String(body),
+		Base:  &base,
+		Body:  &body,
 	}
-
-
 	pr, _, err := client.PullRequests.Create(ctx, upStreamRepoOwner, prowRepo, newPR)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating PR: %s", err)
 	}
-
-	fmt.Printf("Created PR: %s\n", pr.GetHTMLURL())
+	log.Printf("Pull request created: %s\n", pr.GetHTMLURL())
 	return nil
 }
-
-
-
-
-func FetchFileName(owner, repo, dir, branch string)(string, error){
-
-	// create client
-	accessToken := os.Getenv("SECRET_PAT")
-	ctx := context.Background()
-	client := github.NewClient(nil).WithAuthToken(accessToken)
-
-	opts := &github.RepositoryContentGetOptions{
-		Ref: branch,
-	}
-
-	_, dirContents, _, err := client.Repositories.GetContents(ctx, owner, repo, dir, opts)
-	if err != nil {
-		return "error fetching files from repo", err
-	}
-
-
-
-	// extract file names
-	var fileNames []string
-	for _, file := range dirContents {
-		fileNames = append(fileNames, *file.Name)
-	}
-
-
-	// filters to return "release" file name only
-	for _, name := range fileNames{
-		if strings.Contains(name, "release-"){
-			return name, nil
-		}
-	}
-
-	return "file not found", nil
-}
-
-// successfully deletes old file and creates new file on forked repo, eks-a-releaser branch 
-// successfully creates a PR targetting upstream prow jobs repo with the new commits, merges into "main" branch
-
-// partially incomplete, the templater file correctly gets updated with the new release contents 
-// A PR is created right away after the templater file is updated 
-// this is incorrect as a command needs to be executed after the templater file has been updated but prior to the PR creation

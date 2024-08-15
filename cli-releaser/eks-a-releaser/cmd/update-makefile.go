@@ -6,8 +6,8 @@ package cmd
 	this command is responsible for accessing and updating the Makefile with the latest release value
 
 	the updated makefile is committed to the latest release branch, forked repo
-	
-	and a pull request is raised targetting the upstream repo latest release branch
+
+	and a pull request is raised targeting the upstream repo latest release branch
 */
 
 import (

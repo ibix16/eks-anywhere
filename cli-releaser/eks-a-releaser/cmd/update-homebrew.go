@@ -1,6 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 /*
@@ -54,6 +51,8 @@ func runAllHomebrew() {
 }
 
 func updateHomebrew(releaseType string) (string, error) {
+
+	// env variables
 	latestVersionValue := os.Getenv("LATEST_VERSION")
 	latestRelease := os.Getenv("LATEST_RELEASE")
 
